@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Attended Entry Form</title>
+
+<style>
+    body { font-family: Arial; background:#eef2f3; padding:20px; }
+    .container{
+        max-width:450px; margin:auto; background:transparent; padding:40px;
+    }
+    h2{ text-align:center; margin-bottom:15px; color: blue; }
+    label{ font-weight:bold; margin-top:10px; display:block; color: blue; }
+    input, select{
+        width:100%; padding:10px; margin-top:5px;
+        border:1px solid blue; border-radius:35px;
+    }
+    button{
+        margin-top:15px; width:100%; padding:12px;
+        background:#2196F3; color:#fff; border:none;
+        border-radius:6px; font-size:16px;
+    }
+    #successMessage{
+        display:none; color:green; font-weight:bold;
+        text-align:center; margin-bottom:15px;
+    }
+</style>
+</head>
+
+<body>
+
+<div class="container">
+
+<h2>Attended Entry</h2>
+
+<div id="successMessage">✔ সাবমিশন সফল হয়েছে!</div>
+
+<form id="workerForm">
+
+    <label>Worker ID</label>
+    <input type="text" id="workerId" name="entry.1280571396" required>
+
+    <label>Worker Name</label>
+    <input type="text" id="workerName" name="entry.1110847668" readonly required>
+
+    <label>Designation</label>
+    <input type="text" id="designation" name="entry.898867924" readonly required>
+
+    <label>Day Salary</label>
+    <input type="number" id="daySalary" name="entry.467490891" readonly required>
+
+    <label>Date</label>
+    <input type="date" name="entry.495728751" required>
+
+    <label>Present</label>
+    <input type="number" name="entry.1308812731" required>
+
+    <label>OT</label>
+    <input type="number" name="entry.991519887" required>
+
+    <button type="submit">Submit</button>
+
+</form>
+</div>
+
+
+<script>
+// Google Sheet CSV Link
+const csvUrl =
+ "https://docs.google.com/spreadsheets/d/1fyNmCyGUWTCu2XQ3MQuqcSOcvjTt3t-nohbb86Y3DfM/export?format=csv";
+
+// Load Worker List
+let workerList = {};
+
+fetch(csvUrl)
+.then(res => res.text())
+.then(data => {
+    let rows = data.split("\n").slice(1); // header বাদ
+
+    rows.forEach(r => {
+        let cols = r.split(",");
+
+        let id     = cols[1];  // Worker ID (B)
+        let name   = cols[2];  // Worker Name (C)
+        let des    = cols[3];  // Designation (D)
+        let salary = cols[4];  // Day Salary (E)
+
+        if(id){
+            workerList[id.trim()] = { 
+                name: name, 
+                des: des, 
+                salary: salary 
+            };
+        }
+    });
+});
+
+// AutoFill on Worker ID typing
+document.getElementById("workerId").addEventListener("keyup", function(){
+    let id = this.value.trim();
+    let info = workerList[id];
+
+    if(info){
+        document.getElementById("workerName").value = info.name;
+        document.getElementById("designation").value = info.des;
+        document.getElementById("daySalary").value = info.salary;
+    } else {
+        document.getElementById("workerName").value = "";
+        document.getElementById("designation").value = "";
+        document.getElementById("daySalary").value = "";
+    }
+});
+
+// ---- FORM SUBMIT ----
+document.getElementById("workerForm").addEventListener("submit", function(e){
+    e.preventDefault();
+
+    let url = "https://docs.google.com/forms/d/e/1FAIpQLSdJXYpmYf5_4FXgLpSRZWeeSVoAJgicXUkW2KyURJiEyrVekw/formResponse";
+    let fd = new FormData(this);
+
+    fetch(url, { method:"POST", mode:"no-cors", body:fd })
+    .then(()=>{
+        document.getElementById("successMessage").style.display="block";
+        this.reset();
+    });
+});
+</script>
+
+</body>
+</html>
