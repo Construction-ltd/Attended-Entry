@@ -6,24 +6,36 @@
 <title>Attended Entry Form</title>
 
 <style>
-    body { font-family: Arial; background:#eef2f3; padding:20px; }
-    .container{
-        max-width:450px; margin:auto; background:transparent; padding:40px;
+    body { font-family: 'Segoe UI', Arial, sans-serif; background:#f0f2f5; padding:20px; }
+    .container {
+        max-width:450px; margin:auto; background:#fff; padding:30px;
+        border-radius: 15px; box-shadow: 0 4px 20px rgba(0,0,0,0.1);
     }
-    h2{ text-align:center; margin-bottom:15px; color: blue; }
-    label{ font-weight:bold; margin-top:10px; display:block; color: blue; }
-    input, select{
-        width:100%; padding:10px; margin-top:5px;
-        border:1px solid blue; border-radius:35px;
+    h2 { text-align:center; margin-bottom:20px; color: #1a73e8; }
+    label { font-weight:bold; margin-top:12px; display:block; color: #444; }
+    input {
+        width:100%; padding:12px; margin-top:5px;
+        border:2px solid #ddd; border-radius:10px;
+        box-sizing: border-box; transition: 0.3s;
     }
-    button{
-        margin-top:15px; width:100%; padding:12px;
-        background:#2196F3; color:#fff; border:none;
-        border-radius:6px; font-size:16px;
+    input:focus { border-color: #1a73e8; outline: none; }
+    input[readonly] { background-color: #f9f9f9; cursor: not-allowed; border-color: #eee; }
+    
+    button {
+        margin-top:20px; width:100%; padding:14px;
+        background:#1a73e8; color:#fff; border:none;
+        border-radius:10px; font-size:16px; cursor: pointer;
+        font-weight: bold;
     }
-    #successMessage{
-        display:none; color:green; font-weight:bold;
-        text-align:center; margin-bottom:15px;
+    button:disabled { background: #ccc; cursor: not-allowed; }
+    
+    #successMessage {
+        display:none; color:white; background: #28a745; padding: 12px;
+        border-radius: 10px; text-align:center; margin-bottom:15px;
+    }
+    #errorMessage {
+        display:none; color:white; background: #dc3545; padding: 12px;
+        border-radius: 10px; text-align:center; margin-bottom:15px;
     }
 </style>
 </head>
@@ -31,77 +43,86 @@
 <body>
 
 <div class="container">
+    <h2>Attended Entry</h2>
 
-<h2>Attended Entry</h2>
+    <div id="successMessage">✔ সাবমিশন সফল হয়েছে!</div>
+    <div id="errorMessage">❌ এই তারিখে এই শ্রমিকের এন্ট্রি আগে থেকেই আছে!</div>
 
-<div id="successMessage">✔ সাবমিশন সফল হয়েছে!</div>
+    <form id="workerForm">
+        <label>Worker ID</label>
+        <input type="text" id="workerId" name="entry.1280571396" required placeholder="ID লিখুন (যেমন: 101)">
 
-<form id="workerForm">
+        <label>Worker Name</label>
+        <input type="text" id="workerName" name="entry.1110847668" readonly required placeholder="অটো চলে আসবে">
 
-    <label>Worker ID</label>
-    <input type="text" id="workerId" name="entry.1280571396" required>
+        <label>Designation</label>
+        <input type="text" id="designation" name="entry.898867924" readonly required placeholder="অটো চলে আসবে">
 
-    <label>Worker Name</label>
-    <input type="text" id="workerName" name="entry.1110847668" readonly required>
+        <label>Day Salary</label>
+        <input type="number" id="daySalary" name="entry.467490891" readonly required placeholder="0.00">
 
-    <label>Designation</label>
-    <input type="text" id="designation" name="entry.898867924" readonly required>
+        <label>Date</label>
+        <input type="date" id="attDate" name="entry.495728751" required>
 
-    <label>Day Salary</label>
-    <input type="number" id="daySalary" name="entry.467490891" readonly required>
+        <label>Present (Day)</label>
+        <input type="number" step="0.5" name="entry.1308812731" required value="1">
 
-    <label>Date</label>
-    <input type="date" name="entry.495728751" required>
+        <label>OT (Hours)</label>
+        <input type="number" name="entry.991519887" required value="0">
 
-    <label>Present</label>
-    <input type="number" name="entry.1308812731" required>
-
-    <label>OT</label>
-    <input type="number" name="entry.991519887" required>
-
-    <button type="submit">Submit</button>
-
-</form>
+        <button type="submit" id="submitBtn">Submit Attendance</button>
+    </form>
 </div>
 
-
 <script>
-// Google Sheet CSV Link
-const csvUrl =
- "https://docs.google.com/spreadsheets/d/1fyNmCyGUWTCu2XQ3MQuqcSOcvjTt3t-nohbb86Y3DfM/export?format=csv";
+// ডাটাবেস লিঙ্কসমূহ
+const workerSheetUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vScKUqfoXQNBZy7kPYd6bYpHV8_KsOMTDAA-Rx9PI03rZRUkoRHIz25htZDEuyhf8SerewYetdOgJai/pub?gid=544154648&single=true&output=csv";
+const attendanceHistoryUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQeMfVC0OT9CSn4ShLoMNqfZ3pFD5RlkS2dCj1jdfjzvvvGYWOSUy5Mr-zdQ97lb96sjnoXZh5zFaCP/pub?gid=1560298674&single=true&output=csv";
 
-// Load Worker List
 let workerList = {};
+let attendanceData = [];
 
-fetch(csvUrl)
+// ১. Worker List লোড করে মেমোরিতে রাখা
+fetch(workerSheetUrl)
 .then(res => res.text())
 .then(data => {
-    let rows = data.split("\n").slice(1); // header বাদ
-
+    let rows = data.split("\n").slice(1);
     rows.forEach(r => {
         let cols = r.split(",");
-
-        let id     = cols[1];  // Worker ID (B)
-        let name   = cols[2];  // Worker Name (C)
-        let des    = cols[3];  // Designation (D)
-        let salary = cols[4];  // Day Salary (E)
-
-        if(id){
-            workerList[id.trim()] = { 
-                name: name, 
-                des: des, 
-                salary: salary 
+        if(cols[1]){
+            workerList[cols[1].trim()] = { 
+                name: cols[2] ? cols[2].trim() : "", 
+                des: cols[3] ? cols[3].trim() : "", 
+                salary: cols[5] ? cols[5].trim() : "" // Rate Column F
             };
         }
     });
+    console.log("Worker list loaded.");
 });
 
-// AutoFill on Worker ID typing
-document.getElementById("workerId").addEventListener("keyup", function(){
-    let id = this.value.trim();
-    let info = workerList[id];
+// ২. Attendance History লোড করা (ডুপ্লিকেট চেক করতে)
+async function fetchHistory() {
+    try {
+        const res = await fetch(attendanceHistoryUrl);
+        const data = await res.text();
+        attendanceData = data.split("\n").slice(1).map(row => {
+            let cols = row.split(",");
+            return { id: cols[1]?.trim(), date: cols[5]?.trim() };
+        });
+    } catch(e) { console.error("History load failed"); }
+}
+fetchHistory();
 
-    if(info){
+// ৩. অটো-ফিল এবং ডুপ্লিকেট চেক ফাংশন
+function handleValidation() {
+    let id = document.getElementById("workerId").value.trim();
+    let date = document.getElementById("attDate").value;
+    let submitBtn = document.getElementById("submitBtn");
+    let errorMsg = document.getElementById("errorMessage");
+
+    // অটো-ফিল অংশ
+    let info = workerList[id];
+    if(info) {
         document.getElementById("workerName").value = info.name;
         document.getElementById("designation").value = info.des;
         document.getElementById("daySalary").value = info.salary;
@@ -110,22 +131,49 @@ document.getElementById("workerId").addEventListener("keyup", function(){
         document.getElementById("designation").value = "";
         document.getElementById("daySalary").value = "";
     }
-});
 
-// ---- FORM SUBMIT ----
+    // ডুপ্লিকেট চেক অংশ
+    if(id && date) {
+        let d = new Date(date);
+        let formattedDate = `${d.getDate().toString().padStart(2,'0')}/${(d.getMonth()+1).toString().padStart(2,'0')}/${d.getFullYear()}`;
+        
+        let isDuplicate = attendanceData.some(entry => 
+            entry.id === id && (entry.date === date || entry.date === formattedDate)
+        );
+
+        if(isDuplicate) {
+            errorMsg.style.display = "block";
+            submitBtn.disabled = true;
+        } else {
+            errorMsg.style.display = "none";
+            submitBtn.disabled = false;
+        }
+    }
+}
+
+// ৪. ইভেন্ট লিসেনার
+document.getElementById("workerId").addEventListener("input", handleValidation);
+document.getElementById("attDate").addEventListener("change", handleValidation);
+
+// ৫. ফর্ম সাবমিট
 document.getElementById("workerForm").addEventListener("submit", function(e){
     e.preventDefault();
+    let btn = document.getElementById("submitBtn");
+    btn.innerText = "Processing...";
+    btn.disabled = true;
 
     let url = "https://docs.google.com/forms/d/e/1FAIpQLSdJXYpmYf5_4FXgLpSRZWeeSVoAJgicXUkW2KyURJiEyrVekw/formResponse";
     let fd = new FormData(this);
 
     fetch(url, { method:"POST", mode:"no-cors", body:fd })
-    .then(()=>{
+    .then(() => {
         document.getElementById("successMessage").style.display="block";
         this.reset();
-    });
+        btn.innerText = "Submit Attendance";
+        fetchHistory(); // ডাটা আপডেট করা
+    })
+    .catch(() => alert("Error!"));
 });
 </script>
-
 </body>
 </html>
